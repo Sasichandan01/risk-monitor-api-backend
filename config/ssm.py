@@ -1,15 +1,17 @@
 import boto3
 from functools import lru_cache
 from botocore.config import Config
+import logging
 
-session = boto3.Session(profile_name='Absc')
+logger = logging.getLogger(__name__)
 
+# No profile for EC2 - uses IAM role automatically
 my_config = Config(
     region_name='ap-south-1',
     signature_version='s3v4',
 )
 
-ssm = session.client('ssm', config=my_config)
+ssm = boto3.client('ssm', config=my_config)
 
 @lru_cache(maxsize=10)
 def get_parameter(param_name: str, decrypt: bool = True) -> str:
@@ -20,7 +22,7 @@ def get_parameter(param_name: str, decrypt: bool = True) -> str:
         )
         return response['Parameter']['Value']
     except Exception as e:
-        print(f"❌ SSM error for {param_name}: {e}")
+        logger.error("SSM error for %s: %s", param_name, e)
         return None
 
 class SSMConfig:
@@ -35,7 +37,5 @@ class SSMConfig:
     @property
     def NIFTY_SPOT(self):
         return get_parameter('nifty_spot', decrypt=True)
-
-
 
 config = SSMConfig()
