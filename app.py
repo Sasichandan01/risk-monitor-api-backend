@@ -32,6 +32,12 @@ app.include_router(snapshot_router)
 
 @app.get("/health")
 def health():
+    """
+    Returns the health status of the API.
+
+    Returns:
+        dict: A JSON object with a single key "status" set to "ok".
+    """
     return {"status": "ok"}
 
 if __name__ == "__main__":

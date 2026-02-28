@@ -11,6 +11,21 @@ _spot_cache = {'spot': None, 'ts': 0}
 # query.py - Add better error handling
 
 def get_tracked_symbols() -> list:
+    """
+    Returns a list of tracked option symbols for the Nifty 50 index.
+
+    The list will contain 30 symbols in total - 15 call options and 15 put options.
+    Each symbol will be of the format "NIFTY{strike}CE" or "NIFTY{strike}PE" respectively.
+
+    The strike prices are calculated based on the current Nifty spot price, and are spaced 50 points apart.
+    The ATM (at-the-money) strike is calculated as the nearest 50-point multiple to the current Nifty spot price.
+
+    The list is refreshed every 30 seconds, and the Nifty spot price is fetched from the SSM Parameter Store.
+    If the Nifty spot price is not available, a fallback value of 24000 is used.
+
+    :return: A list of tracked option symbols
+    :rtype: list[str]
+    """
     global _spot_cache
 
     if time.time() - _spot_cache['ts'] < 30 and _spot_cache['spot']:
@@ -39,6 +54,36 @@ def get_tracked_symbols() -> list:
     return ce_symbols + pe_symbols
 
 def get_latest_snapshot():
+    """
+    Returns a snapshot of the current state of all tracked options.
+
+    The snapshot contains the latest data for each tracked option, with
+    the data sorted by strike price and option type.
+
+    The snapshot is returned as a JSON object with the following structure:
+    {
+        "timestamp": "HH:MM:SS",
+        "expiries": {
+            "YYYY-MM-DD": [
+                {
+                    "symbol": "NIFTY{strike}CE",
+                    "strike": int,
+                    "type": "CE" or "PE",
+                    "price": float,
+                    "risk_score": int,
+                    "recommendation": str
+                },
+                ...
+            ]
+        }
+    }
+
+    The snapshot is refreshed every time the function is called, and the data is
+    fetched from the database using a single query.
+
+    :return: A JSON object containing the latest data for all tracked options
+    :rtype: dict
+    """
     call_conn = None
     put_conn = None
     try:
@@ -108,6 +153,21 @@ def get_latest_snapshot():
             db.return_put_conn(put_conn)
 
 def get_option_history(symbol: str, expiry: str, history_range: str):
+    """
+    Retrieves option history for a given symbol and expiry.
+
+    Parameters:
+        symbol (str): Instrument symbol (e.g. NIFTY25400CE)
+        expiry (str): Instrument expiry date (e.g. 2026-02-24)
+        history_range (str): Range of history to retrieve (1D, 1W, 1M, MAX)
+
+    Returns:
+        list: List of dictionaries containing option history data
+
+    Raises:
+        ValueError: If history_range is not one of the supported values
+        KeyError: If symbol or expiry is not present in the database
+    """
     range_config = {
         '1D': ("time AT TIME ZONE 'Asia/Kolkata'", "CURRENT_DATE"),
         '1W': ("(date_trunc('minute', time AT TIME ZONE 'Asia/Kolkata') - ((EXTRACT(MINUTE FROM time AT TIME ZONE 'Asia/Kolkata')::int %% 5) * INTERVAL '1 minute'))", "NOW() - INTERVAL '1 week'"),
@@ -178,7 +238,18 @@ def get_option_history(symbol: str, expiry: str, history_range: str):
             db.return_call_conn(conn)
         else:
             db.return_put_conn(conn)
+            
 def get_option_latest(symbol: str, expiry: str):
+    """
+    Fetches the latest available option data for the given symbol and expiry.
+
+    Args:
+        symbol (str): The symbol of the option.
+        expiry (str): The expiry date of the option in YYYY-MM-DD format.
+
+    Returns:
+        dict: The latest available option data if successful, None otherwise.
+    """
     is_call = symbol.endswith('CE')
     conn = db.get_call_conn() if is_call else db.get_put_conn()
 

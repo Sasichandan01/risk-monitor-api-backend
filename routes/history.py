@@ -16,6 +16,21 @@ async def get_history(
     range: str = Query(..., description="1D | 1W | 1M | MAX"),
     reqId: int = Query(..., description="Request counter for stale response handling"),
 ):
+    """
+    Retrieves option history data for a given symbol and expiry.
+
+    Args:
+        symbol (str): The symbol of the option (e.g. NIFTY25400CE).
+        expiry (str): The expiry date of the option in YYYY-MM-DD format (e.g. 2026-02-24).
+        range (str): The range of history to retrieve (1D, 1W, 1M, MAX).
+        reqId (int): Request counter for stale response handling.
+
+    Returns:
+        dict: A dictionary containing the request ID, symbol, expiry, range and option history data.
+
+    Raises:
+        HTTPException: If the range is not one of the supported values.
+    """
     if range not in ["1D", "1W", "1M", "MAX"]:
         raise HTTPException(status_code=400, detail="range must be 1D, 1W, 1M or MAX")
 
@@ -36,6 +51,20 @@ async def get_latest(
     expiry: str = Query(..., description="e.g. 2026-02-24"),
     reqId: int = Query(..., description="Request counter for stale response handling"),
 ):
+    """
+    Retrieves the latest available option data for a given symbol and expiry.
+
+    Args:
+        symbol (str): The symbol of the option (e.g. NIFTY25400CE).
+        expiry (str): The expiry date of the option in YYYY-MM-DD format (e.g. 2026-02-24).
+        reqId (int): Request counter for stale response handling.
+
+    Returns:
+        dict: A dictionary containing the request ID, and the latest available option data.
+
+    Raises:
+        HTTPException: If the option is not found.
+    """
     data = get_option_latest(symbol, expiry)
 
     if not data:
