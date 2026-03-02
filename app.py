@@ -30,7 +30,7 @@ app.include_router(history_router)
 app.include_router(snapshot_router)
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health():
     """
     Returns the health status of the API.
