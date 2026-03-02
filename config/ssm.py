@@ -47,7 +47,7 @@ class SSMConfig:
         Returns:
             str: The Neon connection string for CALL options
         """
-        return get_parameter('/neon_connection_string/call')
+        return get_parameter('/neon_connection_string/call','True')
 
     @property
     def NEON_CONNECTION_STRING_PUT(self): 
@@ -57,7 +57,7 @@ class SSMConfig:
         Returns:
             str: The Neon connection string for PUT options
         """
-        return get_parameter('/neon_connection_string/put')
+        return get_parameter('/neon_connection_string/put','True')
 
     @property
     def NIFTY_SPOT(self):
