@@ -1,13 +1,17 @@
 from services.query import get_option_history, get_option_latest
 import boto3
 import logging
+from botocore.config import Config
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, Query, HTTPException
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
+my_config = Config(
+    region_name='ap-south-1',
+    signature_version='s3v4',
+)
 
 @router.get("/api/history")
 async def get_history(
@@ -102,8 +106,8 @@ async def subscribe_email_alert(payload: dict):
     logger.info("subscribe_email_alert called: %s", payload)
 
     try:
-        session = boto3.Session(profile_name="Absc")
-        ses = session.client("ses", region_name="ap-south-1")
+        
+        ses = boto3.client("ses", config=my_config)
 
         # Check current verification status
         verification = ses.get_identity_verification_attributes(Identities=[email_val])
@@ -122,7 +126,7 @@ async def subscribe_email_alert(payload: dict):
             logger.info("Email %s already verified, skipping verification email", email_val)
 
         # Save subscription in DynamoDB
-        dynamodb = session.resource("dynamodb", region_name="ap-south-1")
+        dynamodb = boto3.resource("dynamodb", config = my_config)
         table = dynamodb.Table("StockSubscriptions")
 
         table.put_item(
