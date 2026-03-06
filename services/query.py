@@ -87,36 +87,41 @@ def get_latest_snapshot():
     call_conn = None
     put_conn = None
     try:
-        symbols = get_tracked_symbols()
+        # Get current spot from SSM
+        try:
+            spot = float(config.NIFTY_SPOT)
+        except (TypeError, ValueError):
+            logger.error("Invalid NIFTY_SPOT - using fallback")
+            spot = 24000.0
+        
+        # Calculate ATM ±15 range
+        atm = round(spot / 50) * 50
+        min_strike = atm - (15 * 50)
+        max_strike = atm + (15 * 50)
+        
+        logger.info("Snapshot query: Spot=%.2f ATM=%d Range=%d-%d", spot, atm, min_strike, max_strike)
+        
         call_conn = db.get_call_conn()
         put_conn = db.get_put_conn()
-
         result = {}
 
         for conn, option_type in [(call_conn, 'CE'), (put_conn, 'PE')]:
             cursor = conn.cursor()
-
-            if symbols:
-                cursor.execute("""
-                    SELECT DISTINCT ON (symbol, strike, expiry)
-                        symbol, strike, expiry, option_type,
-                        ltp, overall_risk_score, recommendation
-                    FROM option_greeks
-                    WHERE symbol = ANY(%s)
-                    ORDER BY symbol, strike, expiry, time DESC;
-                """, (symbols,))
-            else:
-                logger.warning("No tracked symbols — fetching all")
-                cursor.execute("""
-                    SELECT DISTINCT ON (symbol, strike, expiry)
-                        symbol, strike, expiry, option_type,
-                        ltp, overall_risk_score, recommendation
-                    FROM option_greeks
-                    ORDER BY symbol, strike, expiry, time DESC;
-                """)
+            
+            # Query with strike range filter and today's data only
+            cursor.execute("""
+                SELECT DISTINCT ON (symbol, strike, expiry)
+                    symbol, strike, expiry, option_type,
+                    ltp, overall_risk_score, recommendation
+                FROM option_greeks
+                WHERE time >= CURRENT_DATE AT TIME ZONE 'Asia/Kolkata'
+                  AND strike >= %s
+                  AND strike <= %s
+                ORDER BY symbol, strike, expiry, time DESC;
+            """, (min_strike, max_strike))
 
             rows = cursor.fetchall()
-            logger.info("%s returned %d rows", option_type, len(rows))
+            logger.info("%s returned %d rows for range %d-%d", option_type, len(rows), min_strike, max_strike)
             cursor.close()
 
             for row in rows:
