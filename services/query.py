@@ -114,9 +114,9 @@ def get_latest_snapshot():
                     symbol, strike, expiry, option_type,
                     ltp, overall_risk_score, recommendation
                 FROM option_greeks
-                WHERE time >= CURRENT_DATE AT TIME ZONE 'Asia/Kolkata'
-                  AND strike >= %s
-                  AND strike <= %s
+                WHERE DATE(time) = CURRENT_DATE
+                AND strike >= %s
+                AND strike <= %s
                 ORDER BY symbol, strike, expiry, time DESC;
             """, (min_strike, max_strike))
 
