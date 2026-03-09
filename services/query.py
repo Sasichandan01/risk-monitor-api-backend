@@ -109,16 +109,19 @@ def get_latest_snapshot():
             cursor = conn.cursor()
             
             # Query with strike range filter and today's data only
+            logger.info("Executing query with min_strike=%d, max_strike=%d", min_strike, max_strike)
+
             cursor.execute("""
                 SELECT DISTINCT ON (symbol, strike, expiry)
                     symbol, strike, expiry, option_type,
                     ltp, overall_risk_score, recommendation
                 FROM option_greeks
-                WHERE DATE(time) = CURRENT_DATE
-                AND strike >= %s
+                WHERE strike >= %s
                 AND strike <= %s
                 ORDER BY symbol, strike, expiry, time DESC;
             """, (min_strike, max_strike))
+
+            logger.info("Query returned %d rows", cursor.rowcount)
 
             rows = cursor.fetchall()
             logger.info("%s returned %d rows for range %d-%d", option_type, len(rows), min_strike, max_strike)
