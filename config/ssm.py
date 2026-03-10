@@ -13,7 +13,6 @@ my_config = Config(
 
 ssm = boto3.client('ssm', config=my_config)
 
-@lru_cache(maxsize=10)
 def get_parameter(param_name: str, decrypt: bool = True) -> str:
     """
     Retrieves a parameter from SSM Parameter Store.
@@ -40,6 +39,7 @@ def get_parameter(param_name: str, decrypt: bool = True) -> str:
 
 class SSMConfig:
     @property
+    @lru_cache(maxsize=10)
     def NEON_CONNECTION_STRING_CALL(self):
         """
         Property that returns the Neon connection string for CALL options from SSM Parameter Store.
@@ -50,6 +50,7 @@ class SSMConfig:
         return get_parameter('/neon_connection_string/call',True)
 
     @property
+    @lru_cache(maxsize=10)
     def NEON_CONNECTION_STRING_PUT(self): 
         """
         Property that returns the Neon connection string for PUT options from SSM Parameter Store.
