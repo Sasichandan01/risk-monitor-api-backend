@@ -54,36 +54,6 @@ def get_tracked_symbols() -> list:
     return ce_symbols + pe_symbols
 
 def get_latest_snapshot():
-    """
-    Returns a snapshot of the current state of all tracked options.
-
-    The snapshot contains the latest data for each tracked option, with
-    the data sorted by strike price and option type.
-
-    The snapshot is returned as a JSON object with the following structure:
-    {
-        "timestamp": "HH:MM:SS",
-        "expiries": {
-            "YYYY-MM-DD": [
-                {
-                    "symbol": "NIFTY{strike}CE",
-                    "strike": int,
-                    "type": "CE" or "PE",
-                    "price": float,
-                    "risk_score": int,
-                    "recommendation": str
-                },
-                ...
-            ]
-        }
-    }
-
-    The snapshot is refreshed every time the function is called, and the data is
-    fetched from the database using a single query.
-
-    :return: A JSON object containing the latest data for all tracked options
-    :rtype: dict
-    """
     call_conn = None
     put_conn = None
     try:
@@ -99,7 +69,13 @@ def get_latest_snapshot():
         min_strike = atm - (15 * 50)
         max_strike = atm + (15 * 50)
         
-        logger.info("Snapshot query: Spot=%.2f ATM=%d Range=%d-%d", spot, atm, min_strike, max_strike)
+        logger.info("=" * 60)
+        logger.info("SNAPSHOT QUERY DEBUG")
+        logger.info("Nifty Spot from SSM: %.2f", spot)
+        logger.info("Calculated ATM: %d", atm)
+        logger.info("Min Strike: %d", min_strike)
+        logger.info("Max Strike: %d", max_strike)
+        logger.info("=" * 60)
         
         call_conn = db.get_call_conn()
         put_conn = db.get_put_conn()
@@ -108,20 +84,24 @@ def get_latest_snapshot():
         for conn, option_type in [(call_conn, 'CE'), (put_conn, 'PE')]:
             cursor = conn.cursor()
             
-            # Query with strike range filter and today's data only
-            logger.info("Executing query with min_strike=%d, max_strike=%d", min_strike, max_strike)
-
+            logger.info("Querying %s with range %d-%d", option_type, min_strike, max_strike)
+            
             cursor.execute("""
                 SELECT DISTINCT ON (symbol, strike, expiry)
                     symbol, strike, expiry, option_type,
                     ltp, overall_risk_score, recommendation
                 FROM option_greeks
                 WHERE strike >= %s
-                AND strike <= %s
+                  AND strike <= %s
                 ORDER BY symbol, strike, expiry, time DESC;
             """, (min_strike, max_strike))
 
-            logger.info("Query returned %d rows", cursor.rowcount)
+            rows = cursor.fetchall()
+            logger.info("%s query returned %d rows", option_type, len(rows))
+            
+            # Log first 3 strikes to see what's being returned
+            for i, row in enumerate(rows[:3]):
+                logger.info("%s row %d: strike=%d, symbol=%s", option_type, i, row[1], row[0])
 
             rows = cursor.fetchall()
             logger.info("%s returned %d rows for range %d-%d", option_type, len(rows), min_strike, max_strike)
